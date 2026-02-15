@@ -104,6 +104,13 @@ replicasets, services, pvcs. Pass "all" or omit arguments to check everything.`,
 						return err
 					}
 					totalBad += n
+				case "replicasets":
+					fmt.Fprintln(o.Streams.Out, "\n=== ReplicaSets ===")
+					n, err := checkWithFallback(ctx, clientset, ns, o.Streams.Out, checkReplicaSets)
+					if err != nil {
+						return err
+					}
+					totalBad += n
 				}
 			}
 
