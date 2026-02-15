@@ -83,6 +83,13 @@ replicasets, services, pvcs. Pass "all" or omit arguments to check everything.`,
 
 			for _, r := range o.Resources {
 				switch r {
+				case "deployments":
+					fmt.Fprintln(o.Streams.Out, "\n=== Deployments ===")
+					n, err := checkWithFallback(ctx, clientset, ns, o.Streams.Out, checkDeployments)
+					if err != nil {
+						return err
+					}
+					totalBad += n
 				case "nodes":
 					fmt.Fprintln(o.Streams.Out, "\n=== Nodes ===")
 					n, err := checkNodes(ctx, clientset, o.Streams.Out)
