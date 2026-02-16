@@ -13,13 +13,13 @@ import (
 
 // Common node-group label keys across managed Kubernetes providers.
 var nodeGroupLabels = []string{
-	"eks.amazonaws.com/nodegroup",             // EKS managed
-	"karpenter.sh/nodepool",                   // Karpenter
-	"cloud.google.com/gke-nodepool",           // GKE
-	"agentpool",                               // AKS
-	"node.kubernetes.io/instance-type",        // fallback: instance type
-	"kubernetes.azure.com/agentpool",          // AKS (alternative)
-	"alpha.eksctl.io/nodegroup-name",          // eksctl
+	"eks.amazonaws.com/nodegroup",      // EKS managed
+	"karpenter.sh/nodepool",            // Karpenter
+	"cloud.google.com/gke-nodepool",    // GKE
+	"agentpool",                        // AKS
+	"node.kubernetes.io/instance-type", // fallback: instance type
+	"kubernetes.azure.com/agentpool",   // AKS (alternative)
+	"alpha.eksctl.io/nodegroup-name",   // eksctl
 }
 
 // checkNodes lists nodes that are not Ready, grouped by node group when possible.
