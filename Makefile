@@ -6,7 +6,9 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 GOROOT_TOOL_DIR := $(shell go env GOROOT)/pkg/tool/$(shell go env GOOS)_$(shell go env GOARCH)
 COVDATA         := $(GOROOT_TOOL_DIR)/covdata
 
-.PHONY: build clean format lint test show-coverage ensure-covdata release snapshot
+.PHONY: default build clean format lint test show-coverage ensure-covdata release snapshot
+
+default: format lint test build
 
 $(COVDATA):
 	@chmod u+w "$(GOROOT_TOOL_DIR)" 2>/dev/null || true

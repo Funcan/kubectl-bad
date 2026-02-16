@@ -1,0 +1,14 @@
+version: 2
+
+linters:
+  exclusions:
+    rules:
+      - linters:
+          - errcheck
+        text: "Error return value of `fmt.Fprintln` is not checked"
+      - linters:
+          - errcheck
+        text: "Error return value of `fmt.Fprintf` is not checked"
+
+
+

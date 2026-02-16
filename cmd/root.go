@@ -37,8 +37,8 @@ func NewCmd(streams genericiooptions.IOStreams, version string) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:          "kubectl-bad [TYPE ...]",
-		Short:        "A kubectl plugin to find bad things in your cluster",
+		Use:   "kubectl-bad [TYPE ...]",
+		Short: "A kubectl plugin to find bad things in your cluster",
 		Long: `A kubectl plugin to find bad things in your cluster.
 
 Specify one or more resource types to check: pods, nodes, deployments,
