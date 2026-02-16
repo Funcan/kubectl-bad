@@ -39,16 +39,23 @@ func serviceProblem(ctx context.Context, client kubernetes.Interface, svc *corev
 		return ""
 	}
 
-	ep, err := client.CoreV1().Endpoints(svc.Namespace).Get(ctx, svc.Name, metav1.GetOptions{})
+	slices, err := client.DiscoveryV1().EndpointSlices(svc.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("kubernetes.io/service-name=%s", svc.Name),
+	})
 	if err != nil {
 		return "no endpoints (error fetching)"
 	}
 
 	ready := 0
 	notReady := 0
-	for _, subset := range ep.Subsets {
-		ready += len(subset.Addresses)
-		notReady += len(subset.NotReadyAddresses)
+	for _, slice := range slices.Items {
+		for _, ep := range slice.Endpoints {
+			if ep.Conditions.Ready != nil && *ep.Conditions.Ready {
+				ready += len(ep.Addresses)
+			} else {
+				notReady += len(ep.Addresses)
+			}
+		}
 	}
 
 	if ready == 0 && notReady == 0 {
