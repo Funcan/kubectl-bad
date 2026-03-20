@@ -8,12 +8,14 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
 // AllResourceTypes lists every resource kind the plugin can check.
 var AllResourceTypes = []string{
 	"deployments",
+	"externalsecrets",
 	"nodes",
 	"pods",
 	"pvcs",
@@ -42,7 +44,7 @@ func NewCmd(streams genericiooptions.IOStreams, version string) *cobra.Command {
 		Long: `A kubectl plugin to find bad things in your cluster.
 
 Specify one or more resource types to check: pods, nodes, deployments,
-replicasets, services, pvcs. Pass "all" or omit arguments to check everything.`,
+replicasets, services, pvcs, externalsecrets. Pass "all" or omit arguments to check everything.`,
 		Example:      "  kubectl bad pods services\n  kubectl bad all\n  kubectl bad",
 		Version:      version,
 		SilenceUsage: true,
@@ -58,6 +60,11 @@ replicasets, services, pvcs. Pass "all" or omit arguments to check everything.`,
 			o.Resources = resources
 
 			clientset, err := o.Clientset()
+			if err != nil {
+				return err
+			}
+
+			dynamicClient, err := o.DynamicClient()
 			if err != nil {
 				return err
 			}
@@ -86,6 +93,13 @@ replicasets, services, pvcs. Pass "all" or omit arguments to check everything.`,
 				case "deployments":
 					fmt.Fprintln(o.Streams.Out, "\n=== Deployments ===")
 					n, err := checkWithFallback(ctx, clientset, ns, o.Streams.Out, checkDeployments)
+					if err != nil {
+						return err
+					}
+					totalBad += n
+				case "externalsecrets":
+					fmt.Fprintln(o.Streams.Out, "\n=== ExternalSecrets ===")
+					n, err := checkWithFallbackDynamic(ctx, clientset, dynamicClient, ns, o.Streams.Out, checkExternalSecrets)
 					if err != nil {
 						return err
 					}
@@ -171,6 +185,15 @@ func (o *Options) Clientset() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return kubernetes.NewForConfig(config)
+}
+
+// DynamicClient returns a dynamic Kubernetes client from the resolved kubeconfig.
+func (o *Options) DynamicClient() (dynamic.Interface, error) {
+	config, err := o.ConfigFlags.ToRESTConfig()
+	if err != nil {
+		return nil, err
+	}
+	return dynamic.NewForConfig(config)
 }
 
 // Namespace returns the resolved namespace. Returns "" when --all-namespaces is set.
