@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -117,4 +118,67 @@ func (s *syncWriter) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.w.Write(p)
+}
+
+// DynamicCheckFunc checks a single namespace using the dynamic client and
+// returns the number of issues found.
+type DynamicCheckFunc func(ctx context.Context, client dynamic.Interface, ns string, w io.Writer) (int, error)
+
+// checkWithFallbackDynamic mirrors checkWithFallback but uses the dynamic
+// client for the actual resource check. kclient is used only for namespace
+// listing when cluster-wide access is denied.
+func checkWithFallbackDynamic(ctx context.Context, kclient kubernetes.Interface, dclient dynamic.Interface, ns string, w io.Writer, fn DynamicCheckFunc) (int, error) {
+	if ns != "" {
+		return fn(ctx, dclient, ns, w)
+	}
+
+	n, err := fn(ctx, dclient, "", w)
+	if err == nil {
+		return n, nil
+	}
+	if !isForbidden(err) {
+		return 0, err
+	}
+
+	fmt.Fprintln(w, "  (cluster-wide access denied, falling back to per-namespace queries)")
+
+	nsList, err := kclient.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("listing namespaces: %w", err)
+	}
+
+	var (
+		total atomic.Int64
+		mu    sync.Mutex
+		sem   = make(chan struct{}, maxParallelNamespaces)
+		wg    sync.WaitGroup
+	)
+
+	for _, nsObj := range nsList.Items {
+		nsName := nsObj.Name
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			count, err := fn(ctx, dclient, nsName, &syncWriter{mu: &mu, w: w})
+			if err != nil {
+				if isForbidden(err) {
+					mu.Lock()
+					fmt.Fprintf(w, "  WARNING: cannot access namespace %q (forbidden)\n", nsName)
+					mu.Unlock()
+					return
+				}
+				mu.Lock()
+				fmt.Fprintf(w, "  WARNING: error checking namespace %q: %v\n", nsName, err)
+				mu.Unlock()
+				return
+			}
+			total.Add(int64(count))
+		}()
+	}
+
+	wg.Wait()
+	return int(total.Load()), nil
 }
