@@ -25,10 +25,11 @@ var AllResourceTypes = []string{
 
 // Options holds the configuration for the plugin command.
 type Options struct {
-	ConfigFlags   *genericclioptions.ConfigFlags
-	AllNamespaces bool
-	Resources     []string
-	Streams       genericiooptions.IOStreams
+	ConfigFlags    *genericclioptions.ConfigFlags
+	AllNamespaces  bool
+	CheckResources bool
+	Resources      []string
+	Streams        genericiooptions.IOStreams
 }
 
 // NewCmd creates the cobra command for kubectl-bad.
@@ -142,6 +143,15 @@ replicasets, services, pvcs, externalsecrets. Pass "all" or omit arguments to ch
 				}
 			}
 
+			if o.CheckResources {
+				fmt.Fprintln(o.Streams.Out, "\n=== Resource Requests/Limits ===")
+				n, err := checkWithFallbackResources(ctx, clientset, dynamicClient, ns, o.Streams.Out, checkResources)
+				if err != nil {
+					return err
+				}
+				totalBad += n
+			}
+
 			fmt.Fprintf(o.Streams.Out, "\n%d issue(s) found\n", totalBad)
 			return nil
 		},
@@ -149,6 +159,7 @@ replicasets, services, pvcs, externalsecrets. Pass "all" or omit arguments to ch
 
 	o.ConfigFlags.AddFlags(cmd.Flags())
 	cmd.Flags().BoolVarP(&o.AllNamespaces, "all-namespaces", "A", false, "If true, list across all namespaces")
+	cmd.Flags().BoolVar(&o.CheckResources, "resources", false, "Check for pods missing CPU/memory requests and limits")
 
 	return cmd
 }
